@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keep Talking and Nobody Explodes</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #ff2222;
+    --green: #00ff88;
+    --amber: #ffaa00;
+    --blue: #00aaff;
+    --dark: #0a0a0f;
+    --panel: #111118;
+    --border: #333355;
+    --text: #ccccdd;
+    --dim: #555577;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* MENU */
+  #menu {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; gap: 2rem; text-align: center; padding: 2rem;
+  }
+  #menu h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.4rem, 4vw, 2.8rem);
+    font-weight: 900; color: var(--red);
+    text-shadow: 0 0 30px rgba(255,34,34,0.6);
+    line-height: 1.2;
+  }
+  #menu p { color: var(--dim); font-size: 0.95rem; max-width: 500px; line-height: 1.7; }
+  .menu-btns { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+  .menu-btn {
+    padding: 1rem 2rem; border: 2px solid; background: transparent;
+    font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.1em; transition: all 0.2s; border-radius: 4px;
+  }
+  .btn-bomb { border-color: var(--red); color: var(--red); }
+  .btn-bomb:hover { background: var(--red); color: #000; box-shadow: 0 0 20px rgba(255,34,34,0.5); }
+  .btn-manual { border-color: var(--amber); color: var(--amber); }
+  .btn-manual:hover { background: var(--amber); color: #000; box-shadow: 0 0 20px rgba(255,170,0,0.5); }
+  .flicker { animation: flicker 4s infinite; }
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; } 96% { opacity: 0.3; } 97% { opacity: 1; } 98% { opacity: 0.5; }
+  }
+
+  /* LAYOUT GAME */
+  #game { display: none; }
+  #manual { display: none; }
+  .game-layout {
+    display: grid; grid-template-columns: 1fr; min-height: 100vh; padding: 1rem; gap: 1rem;
+  }
+
+  /* TIMER */
+  .timer-bar {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+  }
+  .timer-display {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 8vw, 4rem);
+    font-weight: 900; color: var(--green); text-shadow: 0 0 20px rgba(0,255,136,0.5);
+    transition: color 0.3s;
+  }
+  .timer-display.warning { color: var(--amber); text-shadow: 0 0 20px rgba(255,170,0,0.5); }
+  .timer-display.critical { color: var(--red); text-shadow: 0 0 20px rgba(255,34,34,0.7); animation: pulse 0.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .strikes { display: flex; gap: 0.5rem; align-items: center; }
+  .strike-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--dim); background: transparent; transition: all 0.3s;
+  }
+  .strike-dot.active { background: var(--red); border-color: var(--red); box-shadow: 0 0 10px var(--red); }
+  .status-msg { font-size: 0.8rem; color: var(--dim); }
+
+  /* MODULES BOMB */
+  .modules-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .module {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.25rem; position: relative;
+  }
+  .module.solved { border-color: var(--green); }
+  .module.solved::after {
+    content: '✓ DÉSAMORCÉ'; position: absolute; top: 0.5rem; right: 0.75rem;
+    color: var(--green); font-size: 0.7rem; font-family: 'Orbitron', sans-serif;
+  }
+  .module-title {
+    font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--dim);
+    margin-bottom: 1rem; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  /* MODULE: FILS */
+  .wires { display: flex; flex-direction: column; gap: 0.5rem; }
+  .wire-row { display: flex; align-items: center; gap: 0.75rem; }
+  .wire {
+    height: 12px; flex: 1; border-radius: 6px; cursor: pointer;
+    position: relative; transition: transform 0.1s;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .wire:hover { transform: scaleY(1.2); }
+  .wire.cut { opacity: 0.3; cursor: not-allowed; }
+  .wire.cut::after {
+    content: ''; position: absolute; left: 50%; top: 0;
+    width: 3px; height: 100%; background: var(--dark); transform: translateX(-50%) rotate(5deg);
+  }
+  .wire-num { color: var(--dim); font-size: 0.8rem; min-width: 1rem; text-align: center; }
+
+  /* MODULE: BOUTON */
+  .btn-module { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+  .big-btn {
+    width: 100px; height: 100px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.2);
+    cursor: pointer; font-family: 'Orbitron', sans-serif; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.05em; transition: all 0.1s; color: #fff;
+  }
+  .big-btn:hover { transform: scale(1.05); }
+  .big-btn:active { transform: scale(0.95); }
+  .strip-indicator {
+    height: 8px; width: 100%; border-radius: 4px; transition: background 0.3s;
+  }
+  .btn-clue { font-size: 0.8rem; color: var(--dim); text-align: center; min-height: 2rem; }
+
+  /* MODULE: SIMON */
+  .simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .simon-btn {
+    height: 70px; border-radius: 6px; border: 2px solid rgba(0,0,0,0.3);
+    cursor: pointer; transition: all 0.15s; opacity: 0.5;
+  }
+  .simon-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 0 20px currentColor; }
+  .simon-btn.lit { opacity: 1; transform: scale(1.05); }
+  .simon-seq { font-size: 0.8rem; color: var(--dim); margin-top: 0.5rem; text-align: center; }
+
+  /* MODULE: SYMBOLES */
+  .symbols-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .sym-btn {
+    padding: 0.75rem; background: #1a1a25; border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; font-size: 1.4rem; text-align: center;
+    transition: all 0.15s;
+  }
+  .sym-btn:hover { border-color: var(--amber); }
+  .sym-btn.pressed { background: var(--green); border-color: var(--green); }
+  .sym-clue { font-size: 0.75rem; color: var(--dim); margin-top: 0.5rem; }
+
+  /* MODULE: MOT DE PASSE */
+  .password-module { display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+  .password-slots { display: flex; gap: 0.25rem; }
+  .pass-slot {
+    width: 44px; height: 60px; background: #1a1a25; border: 1px solid var(--border);
+    border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .pass-char { font-size: 1.3rem; font-family: 'Orbitron', sans-serif; color: var(--text); }
+  .pass-arrow {
+    background: transparent; border: none; color: var(--dim); cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 2px; width: 100%;
+    transition: color 0.15s;
+  }
+  .pass-arrow:hover { color: var(--amber); }
+  .pass-submit {
+    padding: 0.5rem 1.5rem; background: transparent; border: 1px solid var(--amber);
+    color: var(--amber); font-family: 'Orbitron', sans-serif; font-size: 0.75rem;
+    cursor: pointer; border-radius: 4px; transition: all 0.2s;
+  }
+  .pass-submit:hover { background: var(--amber); color: #000; }
+
+  /* EXPLOSION */
+  #explosion {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: var(--dark); flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 2rem;
+  }
+  #explosion.show { display: flex; }
+  .boom-text {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(3rem, 12vw, 7rem);
+    font-weight: 900; color: var(--red); animation: shake 0.1s infinite;
+    text-shadow: 0 0 60px rgba(255,0,0,0.8);
+  }
+  @keyframes shake {
+    0%,100% { transform: translate(0); }
+    25% { transform: translate(-4px, 2px); }
+    75% { transform: translate(4px, -2px); }
+  }
+  .boom-info { color: var(--dim); font-size: 1rem; }
+  .boom-info span { color: var(--red); font-weight: bold; }
+  .restart-btn {
+    padding: 0.75rem 2rem; border: 2px solid var(--red); background: transparent;
+    color: var(--red); font-family: 'Orbitron', sans-serif; font-size: 0.85rem;
+    cursor: pointer; border-radius: 4px; transition: all 0.2s;
+  }
+  .restart-btn:hover { background: var(--red); color: #000; }
+
+  /* WIN */
+  #win {
+    display: none; position: fixed; inset: 0; z-index: 999;
+    background: var(--dark); flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 2rem;
+  }
+  #win.show { display: flex; }
+  .win-text {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 8vw, 5rem);
+    font-weight: 900; color: var(--green);
+    text-shadow: 0 0 40px rgba(0,255,136,0.8); animation: glow 1s ease-in-out infinite alternate;
+  }
+  @keyframes glow { from { text-shadow: 0 0 20px rgba(0,255,136,0.5); } to { text-shadow: 0 0 60px rgba(0,255,136,1); } }
+
+  /* SHARED ALERT */
+  .shared-banner {
+    background: rgba(255,34,34,0.1); border: 1px solid rgba(255,34,34,0.3);
+    border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.8rem;
+    color: var(--red); display: none;
+  }
+  .shared-banner.show { display: block; }
+
+  /* MANUAL STYLES */
+  .manual-layout {
+    max-width: 900px; margin: 0 auto; padding: 1rem;
+  }
+  .manual-header {
+    text-align: center; padding: 2rem 1rem;
+    border-bottom: 1px solid var(--border); margin-bottom: 2rem;
+  }
+  .manual-header h1 {
+    font-family: 'Orbitron', sans-serif; font-size: clamp(1.2rem, 4vw, 2rem);
+    font-weight: 900; color: var(--amber);
+    text-shadow: 0 0 20px rgba(255,170,0,0.4); margin-bottom: 0.5rem;
+  }
+  .manual-header p { color: var(--dim); font-size: 0.85rem; }
+  .manual-section {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden;
+  }
+  .manual-section-hdr {
+    background: rgba(255,170,0,0.08); border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.25rem;
+    font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--amber);
+    letter-spacing: 0.1em; display: flex; align-items: center; gap: 0.75rem;
+    cursor: pointer; user-select: none;
+  }
+  .manual-section-body { padding: 1.25rem; }
+  .manual-section-body.collapsed { display: none; }
+  .rule { margin-bottom: 1rem; line-height: 1.7; font-size: 0.85rem; }
+  .rule strong { color: var(--amber); }
+  .rule .cond { color: var(--blue); }
+  table.manual-table {
+    width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0.75rem 0;
+  }
+  table.manual-table th {
+    background: rgba(255,170,0,0.12); color: var(--amber);
+    padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  table.manual-table td {
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid rgba(51,51,85,0.5); color: var(--text);
+  }
+  table.manual-table tr:last-child td { border-bottom: none; }
+  .color-swatch {
+    display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+    vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.2);
+  }
+  .warning-box {
+    background: rgba(255,34,34,0.08); border-left: 3px solid var(--red);
+    padding: 0.75rem 1rem; border-radius: 0 4px 4px 0; margin: 0.75rem 0;
+    font-size: 0.82rem; color: var(--text);
+  }
+  .info-box {
+    background: rgba(0,170,255,0.08); border-left: 3px solid var(--blue);
+    padding: 0.75rem 1rem; border-radius: 0 4px 4px 0; margin: 0.75rem 0;
+    font-size: 0.82rem; color: var(--text);
+  }
+  .chevron { transition: transform 0.2s; }
+  .chevron.open { transform: rotate(90deg); }
+
+  /* shared timer in manual */
+  .manual-timer {
+    background: rgba(255,34,34,0.08); border: 1px solid rgba(255,34,34,0.3);
+    border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+  }
+  .manual-timer .timer-label { font-size: 0.8rem; color: var(--dim); }
+  .manual-timer .t-val {
+    font-family: 'Orbitron', sans-serif; font-size: 2rem;
+    font-weight: 900; color: var(--red);
+  }
+  .manual-timer .t-strikes { display: flex; gap: 0.4rem; }
+  .manual-timer .t-strikes .sd {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--dim); background: transparent;
+  }
+  .manual-timer .t-strikes .sd.on { background: var(--red); border-color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<div id="menu">
+  <h1 class="flicker">💣 KEEP TALKING<br>AND NOBODY EXPLODES</h1>
+  <p>Choisissez votre rôle. Le <strong>Démineurs</strong> voit la bombe. L'<strong>Expert</strong> lit le manuel. Communiquez sans jamais regarder l'écran de l'autre.</p>
+  <div class="menu-btns">
+    <button class="menu-btn btn-bomb" onclick="startBomb()">💣 JE VOIS LA BOMBE</button>
+    <button class="menu-btn btn-manual" onclick="startManual()">📖 JE LIS LE MANUEL</button>
+  </div>
+  <p style="font-size:0.75rem; margin-top:1rem;">Ouvrez les deux rôles dans deux onglets différents (ou deux appareils)</p>
+</div>
+
+<!-- EXPLOSION SCREEN -->
+<div id="explosion">
+  <div class="boom-text">BOOM</div>
+  <div class="boom-info">Temps restant lors de l'explosion : <span id="boom-time">0:00</span> — <span id="boom-strikes">? erreurs</span></div>
+  <p style="color:var(--dim); font-size:0.85rem;">Visible par tous les joueurs connectés.</p>
+  <button class="restart-btn" onclick="location.reload()">↩ RECOMMENCER</button>
+</div>
+
+<!-- WIN SCREEN -->
+<div id="win">
+  <div class="win-text">DÉSAMORCÉE !</div>
+  <p style="color:var(--dim);">La bombe a été neutralisée. Bien joué.</p>
+  <button class="restart-btn" style="border-color:var(--green);color:var(--green);" onclick="location.reload()">↩ REJOUER</button>
+</div>
+
+<!-- BOMB VIEW -->
+<div id="game">
+  <div class="game-layout">
+    <div class="timer-bar">
+      <div>
+        <div style="font-size:0.7rem;color:var(--dim);margin-bottom:0.25rem;font-family:'Orbitron',sans-serif;">TEMPS RESTANT</div>
+        <div class="timer-display" id="timer">5:00</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.7rem;color:var(--dim);margin-bottom:0.5rem;">ERREURS</div>
+        <div class="strikes">
+          <div class="strike-dot" id="s1"></div>
+          <div class="strike-dot" id="s2"></div>
+          <div class="strike-dot" id="s3"></div>
+        </div>
+        <div class="status-msg" id="status-msg">3 erreurs = explosion</div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--dim);max-width:200px;line-height:1.5;">
+        Décrivez à l'expert ce que vous voyez. Ne montrez pas votre écran !
+      </div>
+    </div>
+
+    <div class="shared-banner" id="fail-banner">
+      ⚠️ La bombe a explosé ! Tous les joueurs peuvent voir l'écran d'explosion.
+    </div>
+
+    <div class="modules-grid" id="modules-grid">
+      <!-- Modules injectés par JS -->
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL VIEW -->
+<div id="manual">
+  <div class="manual-layout">
+
+    <div class="manual-timer" id="manual-timer-bar" style="display:none">
+      <div>
+        <div class="timer-label">TEMPS RESTANT (EN DIRECT)</div>
+        <div class="t-val" id="m-timer">--:--</div>
+      </div>
+      <div>
+        <div class="timer-label" style="margin-bottom:0.35rem;">ERREURS</div>
+        <div class="t-strikes">
+          <div class="sd" id="ms1"></div>
+          <div class="sd" id="ms2"></div>
+          <div class="sd" id="ms3"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="manual-header">
+      <h1>📖 MANUEL DE DÉSAMORÇAGE</h1>
+      <p>Lisez les instructions à voix haute. Ne regardez jamais la bombe.</p>
+    </div>
+
+    <!-- SECTION FILS -->
+    <div class="manual-section">
+      <div class="manual-section-hdr" onclick="toggleSection(this)">
+        <span class="chevron open">▶</span> MODULE 1 — FILS À COUPER
+      </div>
+      <div class="manual-section-body">
+        <div class="info-box">Demandez au démineur combien de fils il y a, puis leur couleur dans l'ordre (haut → bas).</div>
+
+        <div class="rule"><strong>Si 3 fils :</strong></div>
+        <table class="manual-table">
+          <tr><th>Condition</th><th>Action</th></tr>
+          <tr><td>Aucun fil rouge</td><td>Couper le 2ème fil</td></tr>
+          <tr><td>Le dernier fil est blanc</td><td>Couper le dernier fil</td></tr>
+          <tr><td>Plus d'un fil bleu</td><td>Couper le dernier fil</td></tr>
+          <tr><td>Sinon</td><td>Couper le dernier fil</td></tr>
+        </table>
+
+        <div class="rule"><strong>Si 4 fils :</strong></div>
+        <table class="manual-table">
+          <tr><th>Condition</th><th>Action</th></tr>
+          <tr><td>Plus d'un fil rouge ET dernier fil impair</td><td>Couper le dernier fil</td></tr>
+          <tr><td>Dernier fil orange ET aucun fil rouge</td><td>Couper le 1er fil</td></tr>
+          <tr><td>Un seul fil bleu</td><td>Couper le 1er fil</td></tr>
+          <tr><td>Plus d'un fil orange</td><td>Couper le dernier fil</td></tr>
+          <tr><td>Sinon</td><td>Couper le 2ème fil</td></tr>
+        </table>
+
+        <div class="rule"><strong>Si 5 fils :</strong></div>
+        <table class="manual-table">
+          <tr><th>Condition</th><th>Action</th></tr>
+          <tr><td>Dernier fil noir ET dernier fil impair</td><td>Couper le 4ème fil</td></tr>
+          <tr><td>Un seul fil rouge ET plus d'un fil jaune</td><td>Couper le 1er fil</td></tr>
+          <tr><td>Aucun fil noir</td><td>Couper le 2ème fil</td></tr>
+          <tr><td>Sinon</td><td>Couper le 1er fil</td></tr>
+        </table>
+
+        <div class="rule"><strong>Si 6 fils :</strong></div>
+        <table class="manual-table">
+          <tr><th>Condition</th><th>Action</th></tr>
+          <tr><td>Aucun fil orange ET dernier fil impair</td><td>Couper le 3ème fil</td></tr>
+          <tr><td>Un seul fil orange ET plus d'un fil blanc</td><td>Couper le 1er fil</td></tr>
+          <tr><td>Aucun fil rouge</td><td>Couper le dernier fil</td></tr>
+          <tr><td>Sinon</td><td>Couper le 4ème fil</td></tr>
+        </table>
+        <div class="warning-box">⚠️ "Dernier fil impair" signifie que le numéro de série de la bombe se termine par un chiffre impair. Demandez-le au démineur.</div>
+      </div>
+    </div>
+
+    <!-- SECTION BOUTON -->
+    <div class="manual-section">
+      <div class="manual-section-hdr" onclick="toggleSection(this)">
+        <span class="chevron open">▶</span> MODULE 2 — LE BOUTON
+      </div>
+      <div class="manual-section-body">
+        <div class="info-box">Demandez la couleur du bouton et le texte inscrit dessus.</div>
+        <div class="rule"><strong>Quand APPUYER et relâcher immédiatement :</strong></div>
+        <ul style="padding-left:1.5rem;font-size:0.85rem;line-height:2;color:var(--text)">
+          <li>Bouton <strong class="cond">bleu</strong> avec texte "ANNULER"</li>
+          <li>Bouton n'est pas rouge ET texte "MAINTENIR"</li>
+          <li>Bouton <strong class="cond">jaune</strong>, peu importe le texte</li>
+          <li>Bouton rouge avec texte "MAINTENIR"</li>
+        </ul>
+        <div class="rule" style="margin-top:1rem;"><strong>Quand MAINTENIR appuyé :</strong> (regarder la bande colorée qui s'allume)</div>
+        <table class="manual-table">
+          <tr><th>Couleur de la bande</th><th>Relâcher quand le timer affiche...</th></tr>
+          <tr><td><span class="color-swatch" style="background:#4444ff"></span>Bleue</td><td>Un 4 à n'importe quelle position</td></tr>
+          <tr><td><span class="color-swatch" style="background:#ffee00"></span>Jaune</td><td>Un 5 à n'importe quelle position</td></tr>
+          <tr><td>Autre couleur</td><td>Un 1 à n'importe quelle position</td></tr>
+        </table>
+        <div class="warning-box">⚠️ Si aucune bande ne s'allume : relâcher immédiatement.</div>
+      </div>
+    </div>
+
+    <!-- SECTION SIMON -->
+    <div class="manual-section">
+      <div class="manual-section-hdr" onclick="toggleSection(this)">
+        <span class="chevron open">▶</span> MODULE 3 — SIMON DIT
+      </div>
+      <div class="manual-section-body">
+        <div class="info-box">Des boutons clignotent dans un ordre. Le démineur doit appuyer dans le bon ordre selon la table de correspondance.</div>
+        <div class="rule">D'abord, demandez si le numéro de série contient une voyelle.</div>
+
+        <div class="rule"><strong>Le bouton clignote → Le démineur appuie sur :</strong></div>
+        <table class="manual-table">
+          <tr><th>Flash</th><th>Avec voyelle</th><th>Sans voyelle</th></tr>
+          <tr><td><span class="color-swatch" style="background:red"></span>Rouge</td><td>Bleu</td><td>Jaune</td></tr>
+          <tr><td><span class="color-swatch" style="background:#2244ff"></span>Bleu</td><td>Rouge</td><td>Vert</td></tr>
+          <tr><td><span class="color-swatch" style="background:green"></span>Vert</td><td>Jaune</td><td>Rouge</td></tr>
+          <tr><td><span class="color-swatch" style="background:#ffee00;border:1px solid #888"></span>Jaune</td><td>Vert</td><td>Bleu</td></tr>
+        </table>
+        <div class="warning-box">⚠️ La séquence s'allonge à chaque round. Une erreur = recommencer depuis le début de la séquence.</div>
+      </div>
+    </div>
+
+    <!-- SECTION SYMBOLES -->
+    <div class="manual-section">
+      <div class="manual-section-hdr" onclick="toggleSection(this)">
+        <span class="chevron open">▶</span> MODULE 4 — SYMBOLES
+      </div>
+      <div class="manual-section-body">
+        <div class="info-box">Quatre symboles sont affichés. Le démineur doit les appuyer dans le bon ordre selon les colonnes ci-dessous.</div>
+        <div class="rule">Identifiez dans quelle colonne se trouvent vos symboles, puis appuyez de haut en bas selon l'ordre de la colonne.</div>
+        <table class="manual-table">
+          <tr><th>Colonne 1</th><th>Colonne 2</th><th>Colonne 3</th><th>Colonne 4</th></tr>
+          <tr><td>Ω (Oméga)</td><td>Ψ (Psi)</td><td>Θ (Thêta)</td><td>β (Bêta)</td></tr>
+          <tr><td>★ (Étoile)</td><td>Ω (Oméga)</td><td>Ψ (Psi)</td><td>Θ (Thêta)</td></tr>
+          <tr><td>♦ (Diamant)</td><td>★ (Étoile)</td><td>♦ (Diamant)</td><td>★ (Étoile)</td></tr>
+          <tr><td>✦ (Étoile 4)</td><td>♣ (Trèfle)</td><td>✦ (Étoile 4)</td><td>♦ (Diamant)</td></tr>
+        </table>
+        <div class="warning-box">⚠️ Appuyez dans l'ordre de la colonne (de haut en bas), pas l'ordre où vous les voyez.</div>
+      </div>
+    </div>
+
+    <!-- SECTION MOT DE PASSE -->
+    <div class="manual-section">
+      <div class="manual-section-hdr" onclick="toggleSection(this)">
+        <span class="chevron open">▶</span> MODULE 5 — MOT DE PASSE
+      </div>
+      <div class="manual-section-body">
+        <div class="info-box">Des lettres défilent sur chaque position. Le démineur doit trouver un mot commun à cette liste.</div>
+        <div class="rule"><strong>Mots de passe valides :</strong></div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.5rem 0;">
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">ABOUT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">AFTER</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">BEGIN</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">BELOW</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">BRING</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">COULD</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">DRIVE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">EVERY</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">FIRST</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">FOUND</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">GREAT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">HOUSE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">LARGE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">LIGHT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">MIGHT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">NIGHT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">NORTH</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">PLACE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">POINT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">POWER</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">QUICK</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">RIGHT</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">ROUND</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">SMALL</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">SOUND</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">STAND</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">STILL</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">THINK</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">THREE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">UNDER</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">WATER</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">WHERE</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">WORLD</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">WOULD</span>
+          <span style="background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);padding:0.25rem 0.75rem;border-radius:20px;font-size:0.85rem;">WRITE</span>
+        </div>
+        <div class="warning-box">⚠️ Les lettres disponibles sur chaque colonne défilent en boucle. Trouvez le mot qui peut être formé avec les lettres disponibles sur CHAQUE colonne.</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:2rem;color:var(--dim);font-size:0.78rem;border-top:1px solid var(--border);margin-top:2rem;">
+      MANUEL DE DÉSAMORÇAGE v1.0 — NE PAS LAISSER LE DÉMINEUR VOIR CE DOCUMENT
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// STATE MANAGEMENT (localStorage + BroadcastChannel)
+// ========================
+const STATE_KEY = 'ktane_state';
+let bc;
+try { bc = new BroadcastChannel('ktane'); } catch(e) { bc = null; }
+
+const TOTAL_TIME = 300; // 5 minutes
+const MAX_STRIKES = 3;
+const PASSWORDS = ['ABOUT','AFTER','BEGIN','BELOW','BRING','COULD','DRIVE','EVERY',
+  'FIRST','FOUND','GREAT','HOUSE','LARGE','LIGHT','MIGHT','NIGHT','NORTH','PLACE',
+  'POINT','POWER','QUICK','RIGHT','ROUND','SMALL','SOUND','STAND','STILL','THINK',
+  'THREE','UNDER','WATER','WHERE','WORLD','WOULD','WRITE'];
+
+let state = {
+  timeLeft: TOTAL_TIME,
+  strikes: 0,
+  exploded: false,
+  won: false,
+  modules: null // set on bomb init
+};
+
+function saveState() {
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  if (bc) bc.postMessage({ type: 'state', data: state });
+}
+
+function loadState() {
+  const s = localStorage.getItem(STATE_KEY);
+  return s ? JSON.parse(s) : null;
+}
+
+// ========================
+// GAME VARIABLES
+// ========================
+let timerInterval = null;
+let currentView = null;
+let simonSequence = [];
+let simonPlayerInput = [];
+let simonRound = 0;
+let buttonHeld = false;
+let buttonHoldStart = null;
+let buttonHoldInterval = null;
+
+const WIRE_COLORS = ['#ff3333','#4488ff','#22cc66','#ffaa00','#ffffff','#cc33ff'];
+const WIRE_COLOR_NAMES = ['rouge','bleu','vert','orange','blanc','violet'];
+
+const SYMBOLS = ['Ω','★','♦','✦','Ψ','Θ','β','♣'];
+
+// ========================
+// MODULE GENERATION
+// ========================
+function generateModules() {
+  const wireCount = 3 + Math.floor(Math.random() * 4); // 3-6 fils
+  const wires = [];
+  for (let i = 0; i < wireCount; i++) {
+    const ci = Math.floor(Math.random() * WIRE_COLORS.length);
+    wires.push({ color: WIRE_COLORS[ci], name: WIRE_COLOR_NAMES[ci], cut: false });
+  }
+
+  const btnColors = ['#ff3333','#4488ff','#ffee00','#888888'];
+  const btnColorNames = ['rouge','bleu','jaune','gris'];
+  const btnTexts = ['MAINTENIR','ANNULER','APPUYER','DÉTONER'];
+  const bi = Math.floor(Math.random() * 4);
+  const bti = Math.floor(Math.random() * 4);
+
+  const stripColors = ['#4444ff','#ffee00','#ff4444','#22cc66'];
+  const stripColorNames = ['bleue','jaune','rouge','verte'];
+
+  const simonSeq = [];
+  const simonColors = ['red','blue','green','yellow'];
+  const len = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < len; i++) simonSeq.push(Math.floor(Math.random() * 4));
+
+  const symIndices = [];
+  while (symIndices.length < 4) {
+    const s = Math.floor(Math.random() * SYMBOLS.length);
+    if (!symIndices.includes(s)) symIndices.push(s);
+  }
+
+  const password = PASSWORDS[Math.floor(Math.random() * PASSWORDS.length)];
+
+  return {
+    wires: { wires, wireCount },
+    button: {
+      color: btnColors[bi], colorName: btnColorNames[bi], text: btnTexts[bti],
+      stripColor: null, stripColorName: null, held: false,
+      stripColors, stripColorNames
+    },
+    simon: { sequence: simonSeq, colors: simonColors, round: 0, input: [] },
+    symbols: { indices: symIndices, pressed: [] },
+    password: { word: password, solved: false },
+    solved: { wires: false, button: false, simon: false, symbols: false, password: false }
+  };
+}
+
+// ========================
+// SERIAL NUMBER (affects some rules)
+// ========================
+const SERIAL = generateSerial();
+function generateSerial() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ0123456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+const SERIAL_HAS_VOWEL = /[AEIOU]/.test(SERIAL);
+const SERIAL_ODD = parseInt(SERIAL.slice(-1)) % 2 === 1;
+
+// ========================
+// RENDER MODULES
+// ========================
+function renderModules(mods) {
+  const grid = document.getElementById('modules-grid');
+  grid.innerHTML = '';
+
+  // Wire module
+  const wm = document.createElement('div');
+  wm.className = 'module' + (mods.solved.wires ? ' solved' : '');
+  wm.innerHTML = `<div class="module-title">MODULE 1 — FILS À COUPER</div>
+    <div style="font-size:0.75rem;color:var(--dim);margin-bottom:0.75rem;">N° de série: <span style="color:var(--amber)">${SERIAL}</span> (voyelle: ${SERIAL_HAS_VOWEL?'OUI':'NON'}, dernier chiffre impair: ${SERIAL_ODD?'OUI':'NON'})</div>
+    <div class="wires" id="wires-container">
+    ${mods.wires.wires.map((w,i) => `
+      <div class="wire-row">
+        <span class="wire-num">${i+1}</span>
+        <div class="wire${w.cut?' cut':''}" style="background:${w.color}" 
+             data-idx="${i}" onclick="${w.cut?'':'cutWire('+i+')'}" 
+             title="${w.name}"></div>
+        <span style="font-size:0.75rem;color:var(--dim)">${w.name}</span>
+      </div>`).join('')}
+    </div>`;
+  grid.appendChild(wm);
+
+  // Button module
+  const bm = document.createElement('div');
+  bm.className = 'module' + (mods.solved.button ? ' solved' : '');
+  const btnStrip = mods.button.stripColor;
+  bm.innerHTML = `<div class="module-title">MODULE 2 — LE BOUTON</div>
+    <div class="btn-module">
+      <button class="big-btn" style="background:${mods.button.color}" 
+              id="big-btn" onmousedown="holdBtn(true)" onmouseup="holdBtn(false)"
+              ontouchstart="holdBtn(true)" ontouchend="holdBtn(false)">${mods.button.text}</button>
+      <div class="strip-indicator" id="strip-ind" style="background:${btnStrip||'transparent'};border:1px solid var(--border)"></div>
+      <div class="btn-clue" id="btn-clue">${btnStrip?'Bande '+mods.button.stripColorName+' — relâcher sur le bon chiffre':'Maintenez ou appuyez selon le manuel'}</div>
+    </div>`;
+  grid.appendChild(bm);
+
+  // Simon module
+  const sm = document.createElement('div');
+  sm.className = 'module' + (mods.solved.simon ? ' solved' : '');
+  sm.innerHTML = `<div class="module-title">MODULE 3 — SIMON DIT</div>
+    <div class="simon-grid">
+      <button class="simon-btn" style="background:red;color:#fff" id="sim-red" onclick="simonPress(0)">ROUGE</button>
+      <button class="simon-btn" style="background:#2244ff;color:#fff" id="sim-blue" onclick="simonPress(1)">BLEU</button>
+      <button class="simon-btn" style="background:green;color:#fff" id="sim-green" onclick="simonPress(2)">VERT</button>
+      <button class="simon-btn" style="background:#ffee00;color:#222" id="sim-yellow" onclick="simonPress(3)">JAUNE</button>
+    </div>
+    <div class="simon-seq" id="simon-status">Regardez les boutons qui clignotent...</div>`;
+  grid.appendChild(sm);
+
+  // Symbols module
+  const syms = document.createElement('div');
+  syms.className = 'module' + (mods.solved.symbols ? ' solved' : '');
+  const symBtns = mods.symbols.indices.map((si, i) => 
+    `<button class="sym-btn${mods.symbols.pressed.includes(i)?' pressed':''}" 
+             onclick="pressSymbol(${i})" id="sym-${i}">${SYMBOLS[si]}</button>`
+  ).join('');
+  syms.innerHTML = `<div class="module-title">MODULE 4 — SYMBOLES</div>
+    <div class="symbols-grid">${symBtns}</div>
+    <div class="sym-clue" id="sym-clue">Appuyez dans l'ordre donné par le manuel (haut→bas de la colonne)</div>`;
+  grid.appendChild(syms);
+
+  // Password module
+  const pm = document.createElement('div');
+  pm.className = 'module' + (mods.solved.password ? ' solved' : '');
+  const word = mods.password.word;
+  const slots = word.split('').map((ch, i) => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    return `<div class="pass-slot">
+      <button class="pass-arrow" onclick="passScroll(${i},1)">▲</button>
+      <div class="pass-char" id="pass-${i}">${ch}</div>
+      <button class="pass-arrow" onclick="passScroll(${i},-1)">▼</button>
+    </div>`;
+  }).join('');
+  pm.innerHTML = `<div class="module-title">MODULE 5 — MOT DE PASSE</div>
+    <div class="password-module">
+      <div class="password-slots">${slots}</div>
+      <button class="pass-submit" onclick="submitPassword()">VALIDER ✓</button>
+      <div id="pass-clue" style="font-size:0.75rem;color:var(--dim);text-align:center">Trouvez le bon mot en faisant défiler les lettres</div>
+    </div>`;
+  grid.appendChild(pm);
+}
+
+// ========================
+// TIMER
+// ========================
+function fmt(s) {
+  const m = Math.floor(s/60), ss = s%60;
+  return m + ':' + String(ss).padStart(2,'0');
+}
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    if (state.exploded || state.won) return;
+    state.timeLeft--;
+    updateTimerDisplay();
+    saveState();
+    if (state.timeLeft <= 0) explode();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer');
+  if (!el) return;
+  el.textContent = fmt(state.timeLeft);
+  el.className = 'timer-display';
+  if (state.timeLeft < 60) el.classList.add('critical');
+  else if (state.timeLeft < 120) el.classList.add('warning');
+}
+
+// ========================
+// MODULE ACTIONS
+// ========================
+let passCurrentChars = [];
+
+function cutWire(idx) {
+  if (state.exploded || state.won || !state.modules) return;
+  const mods = state.modules;
+  if (mods.solved.wires) return;
+  const wires = mods.wires.wires;
+  if (wires[idx].cut) return;
+
+  const correctIdx = getCorrectWire(wires);
+  wires[idx].cut = true;
+
+  if (idx === correctIdx) {
+    mods.solved.wires = true;
+    renderModules(mods);
+    checkWin();
+  } else {
+    addStrike();
+    renderModules(mods);
+  }
+  state.modules = mods;
+  saveState();
+}
+
+function getCorrectWire(wires) {
+  const n = wires.length;
+  const colors = wires.map(w => w.name);
+  const count = c => colors.filter(x=>x===c).length;
+
+  if (n === 3) {
+    if (!colors.includes('rouge')) return 1;
+    if (colors[n-1] === 'blanc') return n-1;
+    if (count('bleu') > 1) return n-1;
+    return n-1;
+  }
+  if (n === 4) {
+    if (count('rouge') > 1 && SERIAL_ODD) return n-1;
+    if (colors[n-1] === 'orange' && count('rouge') === 0) return 0;
+    if (count('bleu') === 1) return 0;
+    if (count('orange') > 1) return n-1;
+    return 1;
+  }
+  if (n === 5) {
+    if (colors[n-1] === 'noir' && SERIAL_ODD) return 3;
+    if (count('rouge') === 1 && count('jaune') > 1) return 0;
+    if (count('noir') === 0) return 1;
+    return 0;
+  }
+  if (n === 6) {
+    if (count('orange') === 0 && SERIAL_ODD) return 2;
+    if (count('orange') === 1 && count('blanc') > 1) return 0;
+    if (count('rouge') === 0) return n-1;
+    return 3;
+  }
+  return n-1;
+}
+
+// Button
+function holdBtn(down) {
+  if (!state.modules || state.modules.solved.button || state.exploded || state.won) return;
+  const mods = state.modules;
+  const btn = mods.button;
+
+  if (down) {
+    buttonHeld = true;
+    buttonHoldStart = Date.now();
+
+    const shouldHold = !(
+      (btn.colorName === 'bleu' && btn.text === 'ANNULER') ||
+      (btn.colorName !== 'rouge' && btn.text === 'MAINTENIR') ||
+      btn.colorName === 'jaune' ||
+      (btn.colorName === 'rouge' && btn.text === 'MAINTENIR')
+    );
+
+    if (shouldHold) {
+      const si = Math.floor(Math.random() * btn.stripColors.length);
+      btn.stripColor = btn.stripColors[si];
+      btn.stripColorName = btn.stripColorNames[si];
+      document.getElementById('strip-ind').style.background = btn.stripColor;
+      document.getElementById('btn-clue').textContent = 'Bande ' + btn.stripColorName + ' — relâcher au bon moment';
+    }
+    state.modules = mods;
+    saveState();
+  } else {
+    if (!buttonHeld) return;
+    buttonHeld = false;
+    const held = (Date.now() - buttonHoldStart) > 400;
+
+    const shouldHold = !(
+      (btn.colorName === 'bleu' && btn.text === 'ANNULER') ||
+      (btn.colorName !== 'rouge' && btn.text === 'MAINTENIR') ||
+      btn.colorName === 'jaune' ||
+      (btn.colorName === 'rouge' && btn.text === 'MAINTENIR')
+    );
+
+    let success = false;
+
+    if (!shouldHold && !held) {
+      success = true;
+    } else if (shouldHold && held && btn.stripColor) {
+      const t = state.timeLeft;
+      const ts = String(t);
+      const strip = btn.stripColorName;
+      if (strip === 'bleue' && ts.includes('4')) success = true;
+      else if (strip === 'jaune' && ts.includes('5')) success = true;
+      else if (ts.includes('1')) success = true;
+    }
+
+    if (success) {
+      mods.solved.button = true;
+      renderModules(mods);
+      checkWin();
+    } else {
+      addStrike();
+      btn.stripColor = null; btn.stripColorName = null;
+      renderModules(mods);
+    }
+    state.modules = mods;
+    saveState();
+  }
+}
+
+// Simon
+const SIM_IDS = ['sim-red','sim-blue','sim-green','sim-yellow'];
+let simonPlaying = false;
+
+function playSimonSequence(mods) {
+  if (simonPlaying) return;
+  simonPlaying = true;
+  const seq = mods.simon.sequence.slice(0, mods.simon.round + 1);
+  let i = 0;
+  const next = () => {
+    if (i >= seq.length) { simonPlaying = false; return; }
+    const el = document.getElementById(SIM_IDS[seq[i]]);
+    if (el) { el.classList.add('lit'); setTimeout(() => { el.classList.remove('lit'); setTimeout(next, 300); }, 600); }
+    i++;
+  };
+  setTimeout(next, 500);
+}
+
+function simonPress(colorIdx) {
+  if (!state.modules || state.modules.solved.simon || state.exploded || state.won) return;
+  const mods = state.modules;
+  const s = mods.simon;
+
+  // Translate based on vowel
+  const map = SERIAL_HAS_VOWEL
+    ? [1, 0, 3, 2]  // rouge→bleu, bleu→rouge, vert→jaune, jaune→vert
+    : [3, 2, 0, 1]; // rouge→jaune, bleu→vert, vert→rouge, jaune→bleu
+
+  const expected = map[s.sequence[s.input.length]];
+
+  if (colorIdx === expected) {
+    s.input.push(colorIdx);
+    const el = document.getElementById(SIM_IDS[colorIdx]);
+    if (el) { el.classList.add('active'); setTimeout(() => el.classList.remove('active'), 300); }
+
+    if (s.input.length > s.round) {
+      s.round++;
+      s.input = [];
+      if (s.round >= s.sequence.length) {
+        mods.solved.simon = true;
+        document.getElementById('simon-status').textContent = '✓ Séquence complète !';
+        renderModules(mods);
+        checkWin();
+      } else {
+        document.getElementById('simon-status').textContent = `Round ${s.round+1}/${s.sequence.length}`;
+        setTimeout(() => playSimonSequence(mods), 800);
+      }
+    }
+  } else {
+    s.input = [];
+    addStrike();
+    document.getElementById('simon-status').textContent = 'Erreur ! Recommencez.';
+    setTimeout(() => playSimonSequence(mods), 1000);
+  }
+  state.modules = mods;
+  saveState();
+}
+
+// Symbols
+let symPressOrder = [];
+
+function pressSymbol(idx) {
+  if (!state.modules || state.modules.solved.symbols || state.exploded || state.won) return;
+  const mods = state.modules;
+  if (mods.symbols.pressed.includes(idx)) return;
+
+  symPressOrder.push(idx);
+  mods.symbols.pressed.push(idx);
+  document.getElementById('sym-'+idx).classList.add('pressed');
+
+  if (symPressOrder.length === 4) {
+    const correctOrder = getSymbolOrder(mods.symbols.indices);
+    const isCorrect = symPressOrder.every((v,i) => v === correctOrder[i]);
+    if (isCorrect) {
+      mods.solved.symbols = true;
+      renderModules(mods);
+      checkWin();
+    } else {
+      addStrike();
+      symPressOrder = [];
+      mods.symbols.pressed = [];
+      renderModules(mods);
+    }
+    state.modules = mods;
+    saveState();
+  }
+}
+
+function getSymbolOrder(indices) {
+  // Each column defines a priority order
+  const columns = [
+    [0,1,2,3], // Ω★♦✦ → indices 0,1,2,3
+    [4,0,1,5], // Ψ★Ω♣ → 4,1,0,7
+    [6,4,2,3], // Θ★♦✦ → 6,4,2,3
+    [7,6,1,2]  // β★Θ♦ → 7,6,1,2
+  ];
+  // Determine which column by checking overlap
+  for (const col of columns) {
+    if (indices.every(i => col.includes(i))) {
+      return col.filter(c => indices.includes(c)).map(c => indices.indexOf(c));
+    }
+  }
+  return [0,1,2,3];
+}
+
+// Password
+let passChars = [];
+
+function initPassword(word) {
+  passChars = word.split('').map(c => c.charCodeAt(0) - 65);
+}
+
+function passScroll(pos, dir) {
+  if (!state.modules || state.modules.solved.password) return;
+  passChars[pos] = (passChars[pos] + dir + 26) % 26;
+  document.getElementById('pass-'+pos).textContent = String.fromCharCode(65 + passChars[pos]);
+}
+
+function submitPassword() {
+  if (!state.modules || state.modules.solved.password || state.exploded || state.won) return;
+  const attempt = passChars.map(c => String.fromCharCode(65+c)).join('');
+  const mods = state.modules;
+  if (PASSWORDS.includes(attempt)) {
+    mods.solved.password = true;
+    renderModules(mods);
+    checkWin();
+  } else {
+    addStrike();
+    document.getElementById('pass-clue').textContent = '"'+attempt+'" n\'est pas dans la liste. Réessayez.';
+  }
+  state.modules = mods;
+  saveState();
+}
+
+// ========================
+// STRIKES & GAME EVENTS
+// ========================
+function addStrike() {
+  state.strikes++;
+  updateStrikes();
+  if (state.strikes >= MAX_STRIKES) explode();
+  saveState();
+}
+
+function updateStrikes() {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('s'+i);
+    if (el) el.classList.toggle('active', i <= state.strikes);
+  }
+  const msg = document.getElementById('status-msg');
+  if (msg) msg.textContent = state.strikes + ' erreur(s) — ' + (MAX_STRIKES - state.strikes) + ' restante(s)';
+}
+
+function checkWin() {
+  const m = state.modules;
+  if (m && m.solved.wires && m.solved.button && m.solved.simon && m.solved.symbols && m.solved.password) {
+    state.won = true;
+    saveState();
+    clearInterval(timerInterval);
+    document.getElementById('win').classList.add('show');
+  }
+}
+
+function explode() {
+  if (state.exploded) return;
+  state.exploded = true;
+  clearInterval(timerInterval);
+  saveState();
+  showExplosion();
+}
+
+function showExplosion() {
+  document.getElementById('boom-time').textContent = fmt(state.timeLeft);
+  document.getElementById('boom-strikes').textContent = state.strikes + ' erreur(s)';
+  document.getElementById('explosion').classList.add('show');
+}
+
+// ========================
+// VIEW SWITCHING
+// ========================
+function startBomb() {
+  currentView = 'bomb';
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+
+  let saved = loadState();
+  if (saved && !saved.exploded && !saved.won && saved.modules) {
+    state = saved;
+  } else {
+    state.modules = generateModules();
+    state.timeLeft = TOTAL_TIME;
+    state.strikes = 0;
+    state.exploded = false;
+    state.won = false;
+    saveState();
+  }
+
+  initPassword(state.modules.password.word);
+  passChars = state.modules.password.word.split('').map(c => c.charCodeAt(0)-65);
+  renderModules(state.modules);
+  updateTimerDisplay();
+  updateStrikes();
+  startTimer();
+
+  // Play Simon after render
+  setTimeout(() => {
+    if (state.modules && !state.modules.solved.simon) {
+      playSimonSequence(state.modules);
+    }
+  }, 1500);
+
+  // Check if already exploded (another tab already blew it up)
+  if (state.exploded) showExplosion();
+  if (state.won) document.getElementById('win').classList.add('show');
+}
+
+function startManual() {
+  currentView = 'manual';
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('manual').style.display = 'block';
+
+  const timerBar = document.getElementById('manual-timer-bar');
+  const s = loadState();
+  if (s) {
+    timerBar.style.display = 'flex';
+    updateManualTimer(s);
+    if (s.exploded) {
+      document.getElementById('m-timer').textContent = 'EXPLOSÉ à ' + fmt(s.timeLeft);
+      document.getElementById('m-timer').style.color = 'var(--red)';
+    }
+  }
+
+  // Listen for updates
+  setInterval(() => {
+    const fresh = loadState();
+    if (fresh) {
+      timerBar.style.display = 'flex';
+      updateManualTimer(fresh);
+      if (fresh.exploded) {
+        document.getElementById('m-timer').textContent = '💥 EXPLOSÉ à ' + fmt(fresh.timeLeft);
+        document.getElementById('m-timer').style.color = 'var(--red)';
+        document.getElementById('explosion').classList.add('show');
+        document.getElementById('boom-time').textContent = fmt(fresh.timeLeft);
+        document.getElementById('boom-strikes').textContent = fresh.strikes + ' erreur(s)';
+      }
+      if (fresh.won) {
+        document.getElementById('win').classList.add('show');
+      }
+    }
+  }, 500);
+}
+
+function updateManualTimer(s) {
+  const el = document.getElementById('m-timer');
+  if (el && !s.exploded && !s.won) {
+    el.textContent = fmt(s.timeLeft);
+    el.style.color = s.timeLeft < 60 ? 'var(--red)' : s.timeLeft < 120 ? 'var(--amber)' : 'var(--green)';
+  }
+  for (let i = 1; i <= 3; i++) {
+    const sd = document.getElementById('ms'+i);
+    if (sd) sd.classList.toggle('on', i <= s.strikes);
+  }
+}
+
+// BroadcastChannel listener (same browser, different tabs)
+if (bc) {
+  bc.onmessage = (e) => {
+    if (e.data.type === 'state') {
+      const s = e.data.data;
+      if (currentView === 'manual') {
+        document.getElementById('manual-timer-bar').style.display = 'flex';
+        updateManualTimer(s);
+        if (s.exploded) {
+          document.getElementById('m-timer').textContent = '💥 EXPLOSÉ à ' + fmt(s.timeLeft);
+          document.getElementById('m-timer').style.color = 'var(--red)';
+          document.getElementById('explosion').classList.add('show');
+          document.getElementById('boom-time').textContent = fmt(s.timeLeft);
+          document.getElementById('boom-strikes').textContent = s.strikes + ' erreur(s)';
+        }
+        if (s.won) document.getElementById('win').classList.add('show');
+      }
+    }
+  };
+}
+
+// ========================
+// MANUAL SECTIONS TOGGLE
+// ========================
+function toggleSection(hdr) {
+  const body = hdr.nextElementSibling;
+  const chev = hdr.querySelector('.chevron');
+  body.classList.toggle('collapsed');
+  chev.classList.toggle('open');
+}
+</script>
+</body>
+</html>
